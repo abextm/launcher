@@ -102,7 +102,7 @@ tasks {
 }
 
 checkstyle {
-    toolVersion = "6.11.2"
+    toolVersion = "8.3"
     configFile = file("checkstyle.xml")
 }
 
