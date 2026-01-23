@@ -94,11 +94,6 @@ public class LauncherProperties
 		return properties.getProperty(BOOTSTRAP);
 	}
 
-	public static String getBootstrapSig()
-	{
-		return properties.getProperty(BOOTSTRAPSIG);
-	}
-
 	public static String getMain()
 	{
 		return properties.getProperty(MAIN);

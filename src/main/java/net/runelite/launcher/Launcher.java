@@ -50,6 +50,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -60,6 +61,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -499,18 +501,11 @@ public class Launcher
 			.GET()
 			.build();
 
-		HttpRequest bootstrapSigReq = HttpRequest.newBuilder()
-			.uri(URI.create(LauncherProperties.getBootstrapSig()))
-			.header("User-Agent", USER_AGENT)
-			.GET()
-			.build();
-
-		HttpResponse<byte[]> bootstrapResp, bootstrapSigResp;
+		HttpResponse<byte[]> bootstrapResp;
 
 		try
 		{
 			bootstrapResp = httpClient.send(bootstrapReq, HttpResponse.BodyHandlers.ofByteArray());
-			bootstrapSigResp = httpClient.send(bootstrapSigReq, HttpResponse.BodyHandlers.ofByteArray());
 		}
 		catch (InterruptedException ex)
 		{
@@ -522,13 +517,36 @@ public class Launcher
 			throw new IOException("Unable to download bootstrap (status code " + bootstrapResp.statusCode() + "): " + new String(bootstrapResp.body()));
 		}
 
-		if (bootstrapSigResp.statusCode() != 200)
-		{
-			throw new IOException("Unable to download bootstrap signature (status code " + bootstrapSigResp.statusCode() + "): " + new String(bootstrapSigResp.body()));
-		}
+		byte[] bytes = bootstrapResp.body();
+		byte[] signature;
 
-		final byte[] bytes = bootstrapResp.body();
-		final byte[] signature = bootstrapSigResp.body();
+		{
+			byte[] magic = "{\"sig\":\"".getBytes(StandardCharsets.UTF_8);
+			for (int i = 0; i < magic.length; i++)
+			{
+				if (magic[i] != bytes[i])
+				{
+					log.warn("bad header {}", bytes);
+					throw new VerificationException("Bootstrap has incorrect header");
+				}
+			}
+
+			int start = magic.length;
+			int end = start;
+			for (; end < bytes.length; end++)
+			{
+				if (bytes[end] == '"')
+				{
+					break;
+				}
+			}
+
+			signature = Base64.getDecoder().decode(Arrays.copyOfRange(bytes, start, end));
+
+			// +1 to eat the quote, keep the comma to rewrite into the curly brace
+			bytes = Arrays.copyOfRange(bytes, end + 1, bytes.length);
+			bytes[0] = '{';
+		}
 
 		Certificate certificate = getCertificate();
 		Signature s = Signature.getInstance("SHA256withRSA");
