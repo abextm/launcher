@@ -34,7 +34,6 @@ import java.awt.Font;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
 import java.net.ConnectException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -91,7 +90,7 @@ public class FatalErrorDialog extends JDialog
 		{
 			setIconImage(ImageIO.read(in));
 		}
-		catch (IOException e)
+		catch (Exception e)
 		{
 		}
 
@@ -105,7 +104,7 @@ public class FatalErrorDialog extends JDialog
 			runelite.setOpaque(true);
 			rightColumn.add(runelite);
 		}
-		catch (IOException e)
+		catch (Exception e)
 		{
 		}
 
