@@ -498,28 +498,43 @@ public class Launcher
 		HttpRequest bootstrapReq = HttpRequest.newBuilder()
 			.uri(URI.create(LauncherProperties.getBootstrap()))
 			.header("User-Agent", USER_AGENT)
+			.header("Accept-Encoding", "gzip")
 			.GET()
 			.build();
 
-		HttpResponse<byte[]> bootstrapResp;
+		HttpResponse<InputStream> bootstrapResp;
 
 		try
 		{
-			bootstrapResp = httpClient.send(bootstrapReq, HttpResponse.BodyHandlers.ofByteArray());
+			bootstrapResp = httpClient.send(bootstrapReq, HttpResponse.BodyHandlers.ofInputStream());
 		}
 		catch (InterruptedException ex)
 		{
 			throw new IOException(ex);
 		}
 
-		if (bootstrapResp.statusCode() != 200)
+		InputStream is;
+		if ("gzip".equals(bootstrapResp.headers().firstValue("Content-Encoding").orElse(null)))
 		{
-			throw new IOException("Unable to download bootstrap (status code " + bootstrapResp.statusCode() + "): " + new String(bootstrapResp.body()));
+			is = new GZIPInputStream(bootstrapResp.body());
+		}
+		else
+		{
+			is = bootstrapResp.body();
 		}
 
-		byte[] bytes = bootstrapResp.body();
-		byte[] signature;
+		byte[] bytes;
+		try (is)
+		{
+			bytes = is.readAllBytes();
+		}
 
+		if (bootstrapResp.statusCode() != 200)
+		{
+			throw new IOException("Unable to download bootstrap (status code " + bootstrapResp.statusCode() + "): " + new String(bytes));
+		}
+
+		byte[] signature;
 		{
 			byte[] magic = "{\"sig\":\"".getBytes(StandardCharsets.UTF_8);
 			for (int i = 0; i < magic.length; i++)
